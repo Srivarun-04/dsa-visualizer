@@ -17,7 +17,6 @@ type VisualizationProps = {
   prevStep: Step | null;
 };
 
-// Pointer color palette matching reference design
 const POINTER_COLORS = [
   { text: 'text-amber-500', arrow: 'text-amber-500', bg: 'bg-amber-500/15', border: 'border-amber-500/30' },
   { text: 'text-sky-400', arrow: 'text-sky-400', bg: 'bg-sky-400/15', border: 'border-sky-400/30' },
@@ -25,6 +24,23 @@ const POINTER_COLORS = [
   { text: 'text-purple-400', arrow: 'text-purple-400', bg: 'bg-purple-400/15', border: 'border-purple-400/30' },
   { text: 'text-pink-400', arrow: 'text-pink-400', bg: 'bg-pink-400/15', border: 'border-pink-400/30' },
 ];
+
+function formatValue(value: any): string {
+  if (value === null) return 'None';
+  if (typeof value === 'boolean') return value ? 'True' : 'False';
+  if (typeof value === 'string') return `"${value}"`;
+  if (typeof value === 'number') return String(value);
+  if (Array.isArray(value)) return `[${value.map(formatValue).join(', ')}]`;
+  if (typeof value === 'object' && value !== null) {
+    if (value.__type__ === 'set') {
+      const items = Array.isArray(value.items) ? value.items : [];
+      if (items.length === 0) return 'set()';
+      return `{${items.map(formatValue).join(', ')}}`;
+    }
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
 
 export default function Visualization({ step, prevStep }: VisualizationProps) {
   if (!step) {
@@ -47,14 +63,14 @@ export default function Visualization({ step, prevStep }: VisualizationProps) {
   const { line, line_text, locals, stdout, exception, step: stepNum, event } = step;
   const prevLocals = prevStep?.locals || {};
 
-  // Group variables into Lists, Dictionaries, and Scalars
-  const { lists, dicts, primitives, scalarPointers } = useMemo(() => {
+  // Group variables into Lists, Dictionaries, Sets, and Scalars
+  const { lists, dicts, sets, primitives, scalarPointers } = useMemo(() => {
     const lList: { name: string; value: any[] }[] = [];
     const dList: { name: string; value: Record<string, any> }[] = [];
+    const sList: { name: string; items: any[] }[] = [];
     const pList: { name: string; value: any; type: string }[] = [];
     const sPointers: { name: string; val: number }[] = [];
 
-    // Collect integer variables that could serve as array index pointers
     for (const [k, v] of Object.entries(locals)) {
       if (typeof v === 'number' && Number.isInteger(v)) {
         sPointers.push({ name: k, val: v });
@@ -65,21 +81,25 @@ export default function Visualization({ step, prevStep }: VisualizationProps) {
       if (Array.isArray(value)) {
         lList.push({ name, value });
       } else if (typeof value === 'object' && value !== null) {
-        dList.push({ name, value });
+        if (value.__type__ === 'set') {
+          sList.push({ name, items: Array.isArray(value.items) ? value.items : [] });
+        } else {
+          dList.push({ name, value });
+        }
       } else {
         const typeStr = value === null ? 'None' : typeof value === 'boolean' ? 'bool' : typeof value;
         pList.push({ name, value, type: typeStr });
       }
     }
 
-    return { lists: lList, dicts: dList, primitives: pList, scalarPointers: sPointers };
+    return { lists: lList, dicts: dList, sets: sList, primitives: pList, scalarPointers: sPointers };
   }, [locals]);
 
   return (
     <div className="h-full flex flex-col space-y-5 p-5 overflow-y-auto bg-[#0D0F14] text-gray-200">
       
       {/* Current Step & Executing Line Header */}
-      <div className="flex items-center justify-between bg-[#161B26] border border-white/10 rounded-xl px-4 py-2.5 shadow-sm">
+      <div className="flex items-center justify-between bg-[#161B26] border border-white/10 rounded-xl px-4 py-2.5 shadow-sm shrink-0">
         <div className="flex items-center space-x-2.5">
           <span className="px-2.5 py-1 rounded-md bg-[#FF8800] text-black font-mono text-xs font-bold shadow-sm">
             STEP {stepNum}
@@ -98,7 +118,7 @@ export default function Visualization({ step, prevStep }: VisualizationProps) {
 
       {/* Exception Banner */}
       {exception && (
-        <div className="bg-red-950/70 border border-red-700/60 text-red-200 p-4 rounded-xl flex items-start space-x-3 shadow-lg">
+        <div className="bg-red-950/70 border border-red-700/60 text-red-200 p-4 rounded-xl flex items-start space-x-3 shadow-lg shrink-0">
           <span className="text-lg">⚠️</span>
           <div>
             <div className="text-xs font-bold uppercase tracking-wider text-red-400 mb-0.5">Execution Exception</div>
@@ -107,14 +127,13 @@ export default function Visualization({ step, prevStep }: VisualizationProps) {
         </div>
       )}
 
-      {/* 1. ARRAY / LIST VISUALIZER (Matches Reference Image 1) */}
+      {/* 1. ARRAY / LIST VISUALIZER */}
       {lists.length > 0 && (
         <div className="space-y-4">
           {lists.map(({ name, value }) => {
             const prevArr = Array.isArray(prevLocals[name]) ? prevLocals[name] : null;
             const isArrayChanged = prevArr === null || JSON.stringify(prevArr) !== JSON.stringify(value);
 
-            // Assign pointer colors deterministically based on pointer name
             const pointerMap: Record<number, { name: string; colorIdx: number }[]> = {};
             scalarPointers.forEach(({ name: ptrName, val }, idx) => {
               if (val >= 0 && val < value.length) {
@@ -128,12 +147,11 @@ export default function Visualization({ step, prevStep }: VisualizationProps) {
                 key={name}
                 className="bg-[#121620] border border-white/10 rounded-2xl p-5 shadow-lg"
               >
-                {/* Array Title & Length Badge */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-2.5">
                     <span className="font-mono text-sm font-bold text-white tracking-wide">{name}</span>
                     <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/5 text-gray-400 font-mono border border-white/10">
-                      length = {value.length}
+                      list (len = {value.length})
                     </span>
                   </div>
                   {isArrayChanged && (
@@ -143,13 +161,11 @@ export default function Visualization({ step, prevStep }: VisualizationProps) {
                   )}
                 </div>
 
-                {/* Empty State */}
                 {value.length === 0 ? (
                   <div className="text-xs text-gray-500 italic py-4 text-center bg-black/30 rounded-xl border border-white/5">
                     [ ] (Empty list)
                   </div>
                 ) : (
-                  /* Array Elements (Reference Image 1: Bold Rounded Cards with Cream/White Borders) */
                   <div className="overflow-x-auto pb-4 pt-1">
                     <div className="flex items-start space-x-3.5 min-w-max px-1">
                       {value.map((item, idx) => {
@@ -158,7 +174,6 @@ export default function Visualization({ step, prevStep }: VisualizationProps) {
 
                         return (
                           <div key={idx} className="flex flex-col items-center">
-                            {/* Array Cell Card (Matches Reference Image 1) */}
                             <div
                               className={`w-14 h-14 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center border-2 transition-all duration-200 ${
                                 isElementChanged && isArrayChanged
@@ -167,16 +182,14 @@ export default function Visualization({ step, prevStep }: VisualizationProps) {
                               }`}
                             >
                               <span className="font-mono text-xl sm:text-2xl font-bold tracking-tight">
-                                {typeof item === 'object' && item !== null ? JSON.stringify(item) : String(item)}
+                                {typeof item === 'object' && item !== null ? formatValue(item) : String(item)}
                               </span>
                             </div>
 
-                            {/* Index Label: [0], [1], [2]... */}
                             <span className="text-[11px] font-mono text-gray-400 font-medium mt-1.5">
                               [{idx}]
                             </span>
 
-                            {/* Pointer Labels: left, right, mid (Matches Reference Image 1) */}
                             {activePointers.length > 0 && (
                               <div className="mt-2 flex flex-col items-center space-y-1">
                                 {activePointers.map((ptr) => {
@@ -204,9 +217,64 @@ export default function Visualization({ step, prevStep }: VisualizationProps) {
         </div>
       )}
 
-      {/* 2. VARIABLES SECTION (Matches Reference Image 2: "VARIABLES•" + Pill Cards) */}
+      {/* 2. SETS SECTION */}
+      {sets.length > 0 && (
+        <div className="space-y-4">
+          {sets.map(({ name, items }) => {
+            const prevSetVal = prevLocals[name];
+            const prevSetItems = prevSetVal && prevSetVal.__type__ === 'set' ? prevSetVal.items : null;
+            const isSetChanged = prevSetItems === null || JSON.stringify(prevSetItems) !== JSON.stringify(items);
+
+            return (
+              <div
+                key={name}
+                className="bg-[#121620] border border-white/10 rounded-2xl p-5 shadow-lg"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-2.5">
+                    <span className="font-mono text-sm font-bold text-[#FF8800] tracking-wide">{name}</span>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/5 text-gray-400 font-mono border border-white/10">
+                      set (size = {items.length})
+                    </span>
+                  </div>
+                  {isSetChanged && (
+                    <span className="text-[10px] uppercase font-bold text-[#FF8800] bg-[#FF8800]/15 px-2 py-0.5 rounded-full border border-[#FF8800]/30">
+                      Modified
+                    </span>
+                  )}
+                </div>
+
+                {items.length === 0 ? (
+                  <div className="text-xs text-gray-500 italic py-4 text-center bg-black/30 rounded-xl border border-white/5 font-mono">
+                    set() (Empty set)
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2.5">
+                    {items.map((item, idx) => {
+                      const isItemNew = prevSetItems === null || !prevSetItems.includes(item);
+                      return (
+                        <div
+                          key={idx}
+                          className={`px-3.5 py-2 rounded-xl font-mono text-sm font-bold border transition-all duration-200 ${
+                            isItemNew && isSetChanged
+                              ? 'bg-[#222938] border-[#FF8800] text-[#FF8800] shadow-[0_0_12px_rgba(255,136,0,0.25)]'
+                              : 'bg-[#181D2A] border-white/10 text-white'
+                          }`}
+                        >
+                          {formatValue(item)}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 3. VARIABLES SECTION */}
       <div className="bg-[#121620] border border-white/10 rounded-2xl p-5 shadow-lg space-y-3.5">
-        {/* Header with Red Dot Indicator (Matches Reference Image 2) */}
         <div className="flex items-center space-x-1.5 mb-1">
           <h2 className="text-sm font-bold tracking-wider text-gray-400 uppercase font-sans">
             VARIABLES
@@ -214,11 +282,10 @@ export default function Visualization({ step, prevStep }: VisualizationProps) {
           <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
         </div>
 
-        {primitives.length === 0 && dicts.length === 0 && lists.length === 0 ? (
+        {primitives.length === 0 && dicts.length === 0 && lists.length === 0 && sets.length === 0 ? (
           <div className="text-xs text-gray-500 italic py-2">No variables in scope.</div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {/* Primitives (Numbers, Strings, Booleans) */}
             {primitives.map(({ name, value }) => {
               const isChanged = prevLocals[name] === undefined || prevLocals[name] !== value;
               return (
@@ -230,20 +297,17 @@ export default function Visualization({ step, prevStep }: VisualizationProps) {
                       : 'bg-[#181D2A] border-white/5'
                   }`}
                 >
-                  {/* Left: Variable Name in Blue/Cyan Mono (Matches Reference Image 2) */}
                   <span className="font-mono text-xs font-semibold text-[#4A9EFF]">
                     {name}
                   </span>
-
-                  {/* Right: Variable Value in Green/Emerald (Matches Reference Image 2) */}
                   <span className="font-mono text-xs font-bold text-[#00E599]">
-                    {value === null ? 'None' : typeof value === 'boolean' ? (value ? 'True' : 'False') : typeof value === 'string' ? `"${value}"` : String(value)}
+                    {formatValue(value)}
                   </span>
                 </div>
               );
             })}
 
-            {/* Dictionaries / Maps */}
+            {/* Dictionaries */}
             {dicts.map(({ name, value }) => {
               const isChanged = prevLocals[name] === undefined || JSON.stringify(prevLocals[name]) !== JSON.stringify(value);
               const keys = Object.keys(value);
@@ -270,7 +334,7 @@ export default function Visualization({ step, prevStep }: VisualizationProps) {
                         <div key={k} className="bg-black/30 px-2.5 py-1.5 rounded-lg border border-white/5 flex items-center justify-between">
                           <span className="font-mono text-[11px] text-gray-400 truncate">{k}:</span>
                           <span className="font-mono text-[11px] font-bold text-[#00E599] truncate ml-1">
-                            {String(value[k])}
+                            {formatValue(value[k])}
                           </span>
                         </div>
                       ))}
@@ -283,8 +347,8 @@ export default function Visualization({ step, prevStep }: VisualizationProps) {
         )}
       </div>
 
-      {/* 3. STANDARD OUTPUT CONSOLE */}
-      <div className="bg-[#121620] border border-white/10 rounded-2xl p-4 shadow-lg">
+      {/* 4. STANDARD OUTPUT CONSOLE */}
+      <div className="bg-[#121620] border border-white/10 rounded-2xl p-4 shadow-lg shrink-0">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center space-x-2">
             <div className="flex space-x-1.5">

@@ -10,7 +10,9 @@ type EditorProps = {
 const Editor: React.FC<EditorProps> = ({ code, setCode, currentLine }) => {
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const decorationsRef = useRef<string[]>([]);
+  const isInternalChangeRef = useRef<boolean>(false);
 
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
@@ -40,8 +42,24 @@ const Editor: React.FC<EditorProps> = ({ code, setCode, currentLine }) => {
     });
 
     monaco.editor.setTheme('dsa-dark');
+
+    // Fix web font metric mismatch by remeasuring fonts once loaded
+    if (typeof document !== 'undefined' && 'fonts' in document) {
+      document.fonts.ready.then(() => {
+        monaco.editor.remeasureFonts();
+      });
+    }
+
+    // Handle container resize cleanly
+    if (containerRef.current && typeof ResizeObserver !== 'undefined') {
+      const resizeObserver = new ResizeObserver(() => {
+        editor.layout();
+      });
+      resizeObserver.observe(containerRef.current);
+    }
   };
 
+  // Synchronize active executing line highlight
   useEffect(() => {
     if (!editorRef.current) return;
     const editor = editorRef.current;
@@ -68,17 +86,29 @@ const Editor: React.FC<EditorProps> = ({ code, setCode, currentLine }) => {
     }
   }, [currentLine]);
 
+  // Update editor value only when external code prop changes (e.g. preset selection or clear)
+  useEffect(() => {
+    if (!editorRef.current) return;
+    const editor = editorRef.current;
+    const currentValue = editor.getValue();
+    if (code !== currentValue && !isInternalChangeRef.current) {
+      editor.setValue(code);
+    }
+  }, [code]);
+
   return (
-    <div className="w-full h-full relative">
+    <div ref={containerRef} className="w-full h-full relative">
       <MonacoEditor
         height="100%"
+        width="100%"
         defaultLanguage="python"
-        theme="vs-dark"
-        value={code}
+        theme="dsa-dark"
+        defaultValue={code}
         options={{
-          fontSize: 13.5,
-          fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+          fontSize: 14,
+          fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
           lineHeight: 22,
+          letterSpacing: 0,
           minimap: { enabled: false },
           lineNumbers: 'on',
           glyphMargin: true,
@@ -90,9 +120,17 @@ const Editor: React.FC<EditorProps> = ({ code, setCode, currentLine }) => {
           renderLineHighlight: 'all',
           automaticLayout: true,
           padding: { top: 12, bottom: 12 },
+          tabSize: 4,
+          insertSpaces: true,
         }}
         onMount={handleEditorDidMount}
-        onChange={(value) => setCode(value ?? '')}
+        onChange={(value) => {
+          isInternalChangeRef.current = true;
+          setCode(value ?? '');
+          setTimeout(() => {
+            isInternalChangeRef.current = false;
+          }, 0);
+        }}
       />
     </div>
   );
