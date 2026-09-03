@@ -47,16 +47,36 @@ export default function Visualization({ step, prevStep, userPointers = [] }: Vis
   if (!step) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-8 text-center select-none bg-[#0D0F14]">
-        <div className="w-16 h-16 rounded-2xl bg-[#161B26] border border-white/10 flex items-center justify-center mb-4 text-[#FF8800] shadow-[0_0_20px_rgba(255,136,0,0.15)]">
-          <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="w-14 h-14 rounded-2xl bg-[#161B26] border border-white/10 flex items-center justify-center mb-3.5 text-[#FF8800] shadow-[0_0_20px_rgba(255,136,0,0.15)]">
+          <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
-        <h3 className="text-base font-semibold text-white/90 mb-1.5">No Execution in Progress</h3>
-        <p className="text-xs text-gray-400 max-w-sm mb-4 leading-relaxed">
-          Write Python DSA code on the left and click <span className="text-[#FF8800] font-semibold">Run Code</span> to view memory state and pointers.
+        <h3 className="text-base font-bold text-white tracking-wide mb-1">No Execution in Progress</h3>
+        <p className="text-xs text-gray-400 max-w-sm mb-5 leading-relaxed">
+          Write Python DSA code and visualize its execution step by step.
         </p>
+
+        {/* 4-Step User Guide Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-w-md w-full text-left">
+          <div className="p-2.5 rounded-xl bg-[#121620] border border-white/5 flex items-start space-x-2.5">
+            <span className="w-5 h-5 rounded-full bg-[#FF8800]/15 text-[#FF8800] border border-[#FF8800]/30 font-mono text-xs font-bold flex items-center justify-center shrink-0">1</span>
+            <span className="text-xs text-gray-300">Choose an example or write <strong>Your Code</strong></span>
+          </div>
+          <div className="p-2.5 rounded-xl bg-[#121620] border border-white/5 flex items-start space-x-2.5">
+            <span className="w-5 h-5 rounded-full bg-[#FF8800]/15 text-[#FF8800] border border-[#FF8800]/30 font-mono text-xs font-bold flex items-center justify-center shrink-0">2</span>
+            <span className="text-xs text-gray-300">Optionally add <strong>Pointer Variables</strong></span>
+          </div>
+          <div className="p-2.5 rounded-xl bg-[#121620] border border-white/5 flex items-start space-x-2.5">
+            <span className="w-5 h-5 rounded-full bg-[#FF8800]/15 text-[#FF8800] border border-[#FF8800]/30 font-mono text-xs font-bold flex items-center justify-center shrink-0">3</span>
+            <span className="text-xs text-gray-300">Click <strong>Run Code</strong> (Ctrl + ↵)</span>
+          </div>
+          <div className="p-2.5 rounded-xl bg-[#121620] border border-white/5 flex items-start space-x-2.5">
+            <span className="w-5 h-5 rounded-full bg-[#FF8800]/15 text-[#FF8800] border border-[#FF8800]/30 font-mono text-xs font-bold flex items-center justify-center shrink-0">4</span>
+            <span className="text-xs text-gray-300">Step through execution with controls</span>
+          </div>
+        </div>
       </div>
     );
   }

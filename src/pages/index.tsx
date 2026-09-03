@@ -5,61 +5,22 @@ import Controls from '../components/Controls';
 import PointerInput from '../components/PointerInput';
 import axios from 'axios';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+
+const DEFAULT_CUSTOM_CODE = `# Write or paste your Python DSA code here
+print("Welcome to DSA Visualizer!")
+`
+
 const EXAMPLES: Record<string, { desc: string; code: string; pointers: string[] }> = {
-  'Most Water': {
-    desc: 'Two Pointers Area',
-    pointers: ['i', 'j'],
-    code: `# Container With Most Water
-height = [1, 8, 6, 2, 5, 4, 8, 3, 7]
-
-i = 0
-maxi = 0
-j = len(height) - 1
-
-while i < j:
-    area = min(height[i], height[j]) * (j - i)
-    maxi = max(maxi, area)
-
-    if height[i] < height[j]:
-        i += 1
-    else:
-        j -= 1
-
-print("Maximum area:", maxi)
-`,
-  },
-  'Binary Search': {
-    desc: 'Divide & Conquer',
-    pointers: ['left', 'right'],
-    code: `# Binary Search
-arr = [3, 8, 12, 17, 21, 26, 30]
-target = 21
-left = 0
-right = len(arr) - 1
-found_idx = -1
-
-while left <= right:
-    mid = (left + right) // 2
-    if arr[mid] == target:
-        found_idx = mid
-        break
-    elif arr[mid] < target:
-        left = mid + 1
-    else:
-        right = mid - 1
-
-print("Target", target, "found at index:", found_idx)
-`,
-  },
   'Two Sum': {
-    desc: 'Hash Map Lookup',
+    desc: 'Array & HashMap Iteration',
     pointers: ['i'],
     code: `# Two Sum with Hash Map
 nums = [2, 7, 11, 15]
 target = 9
 seen = {}
-
 result = None
+
 for i, num in enumerate(nums):
     diff = target - num
     if diff in seen:
@@ -70,43 +31,38 @@ for i, num in enumerate(nums):
 print("Found pair at indices:", result)
 `,
   },
-  'Bubble Sort': {
-    desc: 'Array Swapping',
-    pointers: ['i', 'j'],
-    code: `# Bubble Sort
-nums = [64, 34, 25, 12, 22, 11]
-n = len(nums)
+  'Binary Search': {
+    desc: 'Divide & Conquer with low/high',
+    pointers: ['low', 'high', 'mid'],
+    code: `# Binary Search
+arr = [2, 5, 8, 12, 16, 23]
+target = 5
+low = 0
+high = len(arr) - 1
+found_idx = -1
 
-for i in range(n):
-    for j in range(0, n - i - 1):
-        if nums[j] > nums[j + 1]:
-            nums[j], nums[j + 1] = nums[j + 1], nums[j]
-
-print("Sorted array:", nums)
-`,
-  },
-  'Linear Search': {
-    desc: 'Sequential Scan',
-    pointers: ['idx'],
-    code: `# Linear Search
-data = [10, 20, 30, 40, 50]
-target = 30
-found_at = -1
-
-for idx in range(len(data)):
-    if data[idx] == target:
-        found_at = idx
+while low <= high:
+    mid = (low + high) // 2
+    if arr[mid] == target:
+        found_idx = mid
         break
+    elif arr[mid] < target:
+        low = mid + 1
+    else:
+        high = mid - 1
 
-print("Item found at:", found_at)
+print("Target", target, "found at index:", found_idx)
 `,
   },
 };
 
 export default function Home() {
-  const [selectedExample, setSelectedExample] = useState<string>('Most Water');
-  const [code, setCode] = useState<string>(EXAMPLES['Most Water'].code);
-  const [pointerVars, setPointerVars] = useState<string[]>(EXAMPLES['Most Water'].pointers);
+  const [activeTab, setActiveTab] = useState<'custom' | 'Two Sum' | 'Binary Search'>('custom');
+  const [code, setCode] = useState<string>(DEFAULT_CUSTOM_CODE);
+  const [customSavedCode, setCustomSavedCode] = useState<string>(DEFAULT_CUSTOM_CODE);
+  const [pointerVars, setPointerVars] = useState<string[]>([]);
+  const [customSavedPointers, setCustomSavedPointers] = useState<string[]>([]);
+
   const [steps, setSteps] = useState<any[]>([]);
   const [current, setCurrent] = useState<number>(0);
   const [playing, setPlaying] = useState<boolean>(false);
@@ -114,12 +70,54 @@ export default function Home() {
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Switch between "Your Code" and built-in examples
+  const handleSelectTab = (tab: 'custom' | 'Two Sum' | 'Binary Search') => {
+    setActiveTab(tab);
+    setSteps([]);
+    setCurrent(0);
+    setPlaying(false);
+    setErrorMsg(null);
+
+    if (tab === 'custom') {
+      setCode(customSavedCode);
+      setPointerVars(customSavedPointers);
+    } else {
+      const example = EXAMPLES[tab];
+      setCode(example.code);
+      setPointerVars(example.pointers);
+    }
+  };
+
+  // Keep track of user custom code updates
+  const handleCodeChange = (newCode: string) => {
+    setCode(newCode);
+    if (activeTab === 'custom') {
+      setCustomSavedCode(newCode);
+    }
+  };
+
+  // Keep track of user custom pointer updates
+  const handlePointersChange = (newPointers: string[]) => {
+    setPointerVars(newPointers);
+    if (activeTab === 'custom') {
+      setCustomSavedPointers(newPointers);
+    }
+  };
+
   const fetchTrace = useCallback(async () => {
+    if (!code.trim()) {
+      setErrorMsg('Please write or paste some Python code to run.');
+      setSteps([]);
+      setCurrent(0);
+      return;
+    }
+
     setLoading(true);
     setErrorMsg(null);
     setPlaying(false);
+
     try {
-      const resp = await axios.post('http://127.0.0.1:8000/trace', {
+      const resp = await axios.post(`${API_BASE_URL}/trace`, {
         code,
         timeout_seconds: 10,
         max_steps: 5000,
@@ -128,14 +126,19 @@ export default function Home() {
       if (data.steps && data.steps.length > 0) {
         setSteps(data.steps);
         setCurrent(0);
+      } else if (data.error) {
+        setSteps([]);
+        setErrorMsg(data.error);
       } else {
         setSteps([]);
         setErrorMsg('No execution steps recorded.');
       }
     } catch (e: any) {
       console.error('Trace error', e);
+      const serverErr = e.response?.data?.detail;
       setErrorMsg(
-        e.response?.data?.detail || 'Failed to connect to backend tracer (http://127.0.0.1:8000). Please check backend server.'
+        serverErr ||
+        `Failed to connect to backend tracer at ${API_BASE_URL}. Please ensure the server is running.`
       );
     } finally {
       setLoading(false);
@@ -194,8 +197,7 @@ export default function Home() {
 
   return (
     <div className="h-screen w-screen bg-[#0B0D13] text-gray-100 flex flex-col overflow-hidden font-sans select-none">
-      
-      {/* Top Header */}
+      {/* Top Navigation & Controls Header */}
       <header className="h-14 px-5 border-b border-white/10 bg-[#121620] flex items-center justify-between shrink-0 gap-4">
         {/* App Logo & Title */}
         <div className="flex items-center space-x-3">
@@ -213,34 +215,42 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Example Presets Pills */}
-        <div className="flex items-center space-x-1.5 bg-[#0B0D13] p-1 rounded-xl border border-white/10">
-          {Object.entries(EXAMPLES).map(([key, item]) => {
-            const isSelected = selectedExample === key;
-            return (
-              <button
-                key={key}
-                onClick={() => {
-                  setSelectedExample(key);
-                  setCode(item.code);
-                  setPointerVars(item.pointers || []);
-                  setSteps([]);
-                  setCurrent(0);
-                  setPlaying(false);
-                }}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                  isSelected
-                    ? 'bg-[#1C2333] text-[#FF8800] font-bold border border-white/10 shadow-sm'
+        {/* Mode Selector: "Your Code" vs Built-in Examples */}
+        <div className="flex items-center space-x-2 bg-[#0B0D13] p-1 rounded-xl border border-white/10">
+          {/* Primary "Your Code" Button */}
+          <button
+            onClick={() => handleSelectTab('custom')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${activeTab === 'custom'
+              ? 'bg-[#1F2637] text-[#FF8800] border border-white/10 shadow-sm'
+              : 'text-gray-300 hover:text-white hover:bg-white/5'
+              }`}
+          >
+            <span>Your Code</span>
+          </button>
+
+          <span className="text-gray-600 text-xs hidden md:inline">|</span>
+
+          {/* Built-in Examples (Two Sum, Binary Search) */}
+          <div className="flex items-center space-x-1">
+            {(['Two Sum', 'Binary Search'] as const).map((key) => {
+              const isSelected = activeTab === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => handleSelectTab(key)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${isSelected
+                    ? 'bg-[#1F2637] text-[#FF8800] font-bold border border-white/10 shadow-sm'
                     : 'text-gray-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                {key}
-              </button>
-            );
-          })}
+                    }`}
+                >
+                  {key}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Run Button */}
+        {/* Run Code Button */}
         <div className="flex items-center space-x-2">
           <button
             onClick={fetchTrace}
@@ -272,19 +282,23 @@ export default function Home() {
       </header>
 
       {/* Main Workspace Layout (Side-by-Side: LEFT = Code, RIGHT = Visualizer) */}
-      <main className="flex-1 flex flex-row overflow-hidden w-full h-full">
-        
-        {/* LEFT SIDE: Code Editor (46% width) */}
-        <section className="w-[46%] h-full border-r border-white/10 flex flex-col bg-[#131722] overflow-hidden">
+      <main className="flex-1 flex flex-col md:flex-row overflow-hidden w-full h-full">
+        {/* LEFT SIDE: Code Editor (46% width on desktop) */}
+        <section className="w-full md:w-[46%] h-1/2 md:h-full border-b md:border-b-0 md:border-r border-white/10 flex flex-col bg-[#131722] overflow-hidden">
           {/* Subheader */}
           <div className="px-4 py-2.5 bg-[#181E2C] border-b border-white/10 flex items-center justify-between text-xs text-gray-400 shrink-0">
             <div className="flex items-center space-x-2">
-              <span className="font-semibold text-gray-200 font-mono">CODE EDITOR</span>
+              <span className="font-semibold text-gray-200 font-mono">
+                {activeTab === 'custom' ? 'YOUR CODE' : `EXAMPLE: ${activeTab.toUpperCase()}`}
+              </span>
               <span className="text-[10px] text-gray-500">• Python 3</span>
             </div>
             <button
-              onClick={() => setCode('')}
-              className="text-[11px] text-gray-400 hover:text-[#FF8800] transition-colors"
+              onClick={() => {
+                setCode('');
+                if (activeTab === 'custom') setCustomSavedCode('');
+              }}
+              className="text-[11px] text-gray-400 hover:text-[#FF8800] transition-colors cursor-pointer"
             >
               Clear
             </button>
@@ -293,7 +307,7 @@ export default function Home() {
           {/* User-Defined Pointer Variables Input Section */}
           <PointerInput
             pointers={pointerVars}
-            onChange={setPointerVars}
+            onChange={handlePointersChange}
             code={code}
           />
 
@@ -301,14 +315,14 @@ export default function Home() {
           <div className="flex-1 overflow-hidden">
             <Editor
               code={code}
-              setCode={setCode}
+              setCode={handleCodeChange}
               currentLine={currentStep ? currentStep.line : undefined}
             />
           </div>
         </section>
 
-        {/* RIGHT SIDE: Step-by-Step Visualization (54% width) */}
-        <section className="w-[54%] h-full flex flex-col bg-[#0D0F14] overflow-hidden">
+        {/* RIGHT SIDE: Step-by-Step Visualization (54% width on desktop) */}
+        <section className="w-full md:w-[54%] h-1/2 md:h-full flex flex-col bg-[#0D0F14] overflow-hidden">
           <div className="px-4 py-2.5 bg-[#181E2C] border-b border-white/10 flex items-center justify-between text-xs text-gray-400 shrink-0">
             <div className="flex items-center space-x-2">
               <span className="font-semibold text-gray-200 font-mono">VISUALIZATION</span>
@@ -328,7 +342,8 @@ export default function Home() {
             {errorMsg ? (
               <div className="p-6 text-center">
                 <div className="bg-red-950/60 border border-red-800 text-red-300 p-4 rounded-xl text-xs font-mono text-left shadow-lg">
-                  {errorMsg}
+                  <div className="text-xs font-bold text-red-400 mb-1">Execution Notice:</div>
+                  <pre className="whitespace-pre-wrap">{errorMsg}</pre>
                 </div>
               </div>
             ) : (
@@ -340,7 +355,6 @@ export default function Home() {
             )}
           </div>
         </section>
-
       </main>
 
       {/* Bottom Controls Bar */}
