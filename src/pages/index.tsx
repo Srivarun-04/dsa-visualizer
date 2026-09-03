@@ -2,11 +2,35 @@ import React, { useState, useCallback, useEffect } from 'react';
 import Editor from '../components/Editor';
 import Visualization from '../components/Visualization';
 import Controls from '../components/Controls';
+import PointerInput from '../components/PointerInput';
 import axios from 'axios';
 
-const EXAMPLES: Record<string, { desc: string; code: string }> = {
+const EXAMPLES: Record<string, { desc: string; code: string; pointers: string[] }> = {
+  'Most Water': {
+    desc: 'Two Pointers Area',
+    pointers: ['i', 'j'],
+    code: `# Container With Most Water
+height = [1, 8, 6, 2, 5, 4, 8, 3, 7]
+
+i = 0
+maxi = 0
+j = len(height) - 1
+
+while i < j:
+    area = min(height[i], height[j]) * (j - i)
+    maxi = max(maxi, area)
+
+    if height[i] < height[j]:
+        i += 1
+    else:
+        j -= 1
+
+print("Maximum area:", maxi)
+`,
+  },
   'Binary Search': {
     desc: 'Divide & Conquer',
+    pointers: ['left', 'right'],
     code: `# Binary Search
 arr = [3, 8, 12, 17, 21, 26, 30]
 target = 21
@@ -29,6 +53,7 @@ print("Target", target, "found at index:", found_idx)
   },
   'Two Sum': {
     desc: 'Hash Map Lookup',
+    pointers: ['i'],
     code: `# Two Sum with Hash Map
 nums = [2, 7, 11, 15]
 target = 9
@@ -47,6 +72,7 @@ print("Found pair at indices:", result)
   },
   'Bubble Sort': {
     desc: 'Array Swapping',
+    pointers: ['i', 'j'],
     code: `# Bubble Sort
 nums = [64, 34, 25, 12, 22, 11]
 n = len(nums)
@@ -61,6 +87,7 @@ print("Sorted array:", nums)
   },
   'Linear Search': {
     desc: 'Sequential Scan',
+    pointers: ['idx'],
     code: `# Linear Search
 data = [10, 20, 30, 40, 50]
 target = 30
@@ -77,8 +104,9 @@ print("Item found at:", found_at)
 };
 
 export default function Home() {
-  const [selectedExample, setSelectedExample] = useState<string>('Binary Search');
-  const [code, setCode] = useState<string>(EXAMPLES['Binary Search'].code);
+  const [selectedExample, setSelectedExample] = useState<string>('Most Water');
+  const [code, setCode] = useState<string>(EXAMPLES['Most Water'].code);
+  const [pointerVars, setPointerVars] = useState<string[]>(EXAMPLES['Most Water'].pointers);
   const [steps, setSteps] = useState<any[]>([]);
   const [current, setCurrent] = useState<number>(0);
   const [playing, setPlaying] = useState<boolean>(false);
@@ -195,6 +223,7 @@ export default function Home() {
                 onClick={() => {
                   setSelectedExample(key);
                   setCode(item.code);
+                  setPointerVars(item.pointers || []);
                   setSteps([]);
                   setCurrent(0);
                   setPlaying(false);
@@ -247,6 +276,7 @@ export default function Home() {
         
         {/* LEFT SIDE: Code Editor (46% width) */}
         <section className="w-[46%] h-full border-r border-white/10 flex flex-col bg-[#131722] overflow-hidden">
+          {/* Subheader */}
           <div className="px-4 py-2.5 bg-[#181E2C] border-b border-white/10 flex items-center justify-between text-xs text-gray-400 shrink-0">
             <div className="flex items-center space-x-2">
               <span className="font-semibold text-gray-200 font-mono">CODE EDITOR</span>
@@ -259,6 +289,15 @@ export default function Home() {
               Clear
             </button>
           </div>
+
+          {/* User-Defined Pointer Variables Input Section */}
+          <PointerInput
+            pointers={pointerVars}
+            onChange={setPointerVars}
+            code={code}
+          />
+
+          {/* Monaco Editor Container */}
           <div className="flex-1 overflow-hidden">
             <Editor
               code={code}
@@ -293,7 +332,11 @@ export default function Home() {
                 </div>
               </div>
             ) : (
-              <Visualization step={currentStep} prevStep={prevStep} />
+              <Visualization
+                step={currentStep}
+                prevStep={prevStep}
+                userPointers={pointerVars}
+              />
             )}
           </div>
         </section>

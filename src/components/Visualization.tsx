@@ -15,6 +15,7 @@ type Step = {
 type VisualizationProps = {
   step: Step | null;
   prevStep: Step | null;
+  userPointers?: string[];
 };
 
 const POINTER_COLORS = [
@@ -42,7 +43,7 @@ function formatValue(value: any): string {
   return String(value);
 }
 
-export default function Visualization({ step, prevStep }: VisualizationProps) {
+export default function Visualization({ step, prevStep, userPointers = [] }: VisualizationProps) {
   if (!step) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-8 text-center select-none bg-[#0D0F14]">
@@ -71,9 +72,16 @@ export default function Visualization({ step, prevStep }: VisualizationProps) {
     const pList: { name: string; value: any; type: string }[] = [];
     const sPointers: { name: string; val: number }[] = [];
 
-    for (const [k, v] of Object.entries(locals)) {
-      if (typeof v === 'number' && Number.isInteger(v)) {
-        sPointers.push({ name: k, val: v });
+    // ONLY variables explicitly specified in userPointers are treated as array pointers
+    if (userPointers && userPointers.length > 0) {
+      for (const ptrName of userPointers) {
+        const trimmed = ptrName.trim();
+        if (trimmed && trimmed in locals) {
+          const v = locals[trimmed];
+          if (typeof v === 'number' && Number.isInteger(v)) {
+            sPointers.push({ name: trimmed, val: v });
+          }
+        }
       }
     }
 
@@ -93,7 +101,7 @@ export default function Visualization({ step, prevStep }: VisualizationProps) {
     }
 
     return { lists: lList, dicts: dList, sets: sList, primitives: pList, scalarPointers: sPointers };
-  }, [locals]);
+  }, [locals, userPointers]);
 
   return (
     <div className="h-full flex flex-col space-y-5 p-5 overflow-y-auto bg-[#0D0F14] text-gray-200">
