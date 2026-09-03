@@ -1,4 +1,5 @@
 import sys
+import os
 import json
 import subprocess
 from typing import List, Dict, Any, Optional
@@ -20,8 +21,9 @@ def trace_code(request: TraceRequest) -> TraceResponse:
     })
 
     try:
+        runner_path = os.path.join(os.path.dirname(__file__), "runner.py")
         proc = subprocess.Popen(
-            [sys.executable, "-m", "backend.app.runner"],
+            [sys.executable, runner_path],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
