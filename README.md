@@ -2,90 +2,110 @@
 
 An interactive Python DSA visualizer that lets you execute algorithms step-by-step and visually track arrays, variables, and user-defined pointers.
 
-DSA Visualizer executes genuine Python code in an isolated runtime environment, captures every line-by-line state transition, and renders a live, synchronized visual interface of memory structures, variable mutations, and pointer movements.
+![DSA Visualizer Demo](docs/images/dsa-visualizer-demo.png)
+
+DSA Visualizer executes real Python code in an isolated execution engine, captures every line-by-line state transition, and renders a live, synchronized visual interface of memory structures, variable mutations, and pointer movements.
 
 ---
 
 ## Features
 
-- **Step-by-Step Python Execution**: Trace actual Python code line-by-line using `sys.settrace` with full stdout and exception monitoring.
-- **Visual Execution Timeline**: Synchronized line-highlighting in a dark-themed Monaco code editor.
-- **Array & List Visualization**: Render lists as discrete memory cells with index indicators (`[0]`, `[1]`, `[2]`, ...).
-- **Variable State Tracking**: Automatic tracking of primitive scalars (`int`, `float`, `str`, `bool`), dictionaries, and sets with mutation badges.
-- **User-Defined Pointer Visualization**: Manually specify which variables represent pointers (e.g. `i`, `j` or `low`, `high`), preventing unrelated variables from cluttering array cells.
-- **Set & Mutable Collection Snapshots**: Deep-copy snapshotting ensures historical states remain intact across set additions, deletions, and list modifications.
-- **Playback Controls**: Full interactive timeline scrubber, Play, Pause, Next Step, Prev Step, and Reset.
-- **Adjustable Speed**: Control execution speed (`0.5x`, `1x`, `2x`) for automated playback.
-- **Built-in Examples**:
-  - **Two Sum**: Demonstrating array iteration, variable tracking, and dictionary lookup.
-  - **Binary Search**: Demonstrating divide-and-conquer on sorted arrays with `low` and `high` pointers.
-- **Custom Python Code Support**: Dedicated "Your Code" workspace to write, paste, and visualize any Python DSA algorithm.
+- **Step-by-step Python execution**: Trace actual Python code line-by-line using `sys.settrace` with full stdout and exception monitoring.
+- **Visual execution timeline**: Synchronized line-highlighting in a dark-themed Monaco code editor.
+- **Array visualization**: Render lists as discrete memory cells with index indicators (`[0]`, `[1]`, `[2]`, ...).
+- **Variable state tracking**: Automatic tracking of primitive scalars (`int`, `float`, `str`, `bool`), dictionaries, and sets.
+- **User-defined pointer visualization**: Explicitly select pointer variable names to render dynamic pointers (`▲ low`, `▲ high`, `▲ mid`) directly beneath corresponding array cells.
+- **Play / Pause / Step controls**: Navigate back and forth through recorded steps or autoplay execution.
+- **Adjustable execution speed**: Control playback speed presets (`0.5x`, `1x`, `2x`).
+- **Two Sum example**: Built-in demonstration of array iteration, variable tracking, and dictionary lookup.
+- **Binary Search example**: Built-in demonstration of divide-and-conquer on sorted arrays with `low`, `high`, and `mid` pointers.
+- **Custom Python code support**: Dedicated **Your Code** workspace to write, paste, and visualize any Python DSA algorithm.
 
 ---
 
 ## How It Works
 
-1. **Write or Load Python Code**: Use the dedicated "Your Code" editor or select a built-in example.
-2. **Specify Pointer Variables**: Explicitly define the pointer names used in your algorithm (e.g., `low`, `high`, `left`, `right`).
-3. **Run the Code**: The Python backend compiles and executes the code in an isolated subprocess.
-4. **Capture Execution States**: Immutable snapshots of memory, local variables, stdout, and call frames are recorded per line.
-5. **Step Through Execution**: Use the scrubber, arrow keys, or autoplay to navigate forward and backward in time.
-6. **Observe Dynamic Changes**: Watch pointers move, array elements update, and variables mutate in real time.
+1. **Write or load Python code**: Choose between the built-in educational examples or use the dedicated **Your Code** editor.
+2. **Specify pointer variables**: Enter the exact variable names used as pointers in your code (e.g., `low`, `high`, `i`, `j`).
+3. **Run the code**: Click **Run Code** (or press `Ctrl + Enter`) to execute the Python script through the backend tracer.
+4. **Execution states are captured**: Line numbers, memory snapshots, local variables, standard output, and runtime events are recorded for every step.
+5. **Step through execution**: Use the playback controls or keyboard shortcuts (`←` / `→` to step, `Space` to play/pause).
+6. **Observe variables and pointers visually**: Watch pointer indicators navigate across array indices and watch variable values update in real time.
 
 ---
 
-## Example
+## Pointer Variables
+
+A core feature of DSA Visualizer is **User-Defined Pointer Variables**. 
+
+Rather than relying on inaccurate heuristics or guessing which integer variable represents an index pointer, the user explicitly controls which variables should receive pointer indicators on arrays.
+
+For example, given this code:
 
 ```python
-arr = [1, 2, 3, 4, 5]
+arr = [2, 5, 8, 12, 16, 23]
+target = 5
+low = 0
+high = len(arr) - 1
+found_idx = -1
 
-left = 0
-right = len(arr) - 1
-
-while left < right:
-    if arr[left] < arr[right]:
-        left += 1
+while low <= high:
+    mid = (low + high) // 2
+    if arr[mid] == target:
+        found_idx = mid
+        break
+    elif arr[mid] < target:
+        low = mid + 1
     else:
-        right -= 1
+        high = mid - 1
 ```
 
-**Pointer Variables:** `left`, `right`
+The user specifies:
+- `low`
+- `high`
+- `mid`
 
-The visualizer renders:
+The visualizer treats **only** `low`, `high`, and `mid` as pointer indicators underneath the array:
+
 ```text
-          left                        right
-           ▲                            ▲
-         [ 1 ]   [ 2 ]   [ 3 ]   [ 4 ]   [ 5 ]
-          [0]     [1]     [2]     [3]     [4]
+               low    high   mid
+                ▲      ▲      ▲
+       [ 2 ]  [ 5 ]  [ 8 ]  [ 12 ]  [ 16 ]  [ 23 ]
+        [0]    [1]    [2]    [3]     [4]     [5]
 ```
+
+Other variables like `target = 5` or `found_idx = -1` remain in the **Variables** inspection panel and are **never** rendered as array pointers.
 
 ---
 
-## Project Structure
+## Built-in Examples
 
-```text
-dsa-visualizer/
-├── backend/
-│   └── app/
-│       ├── main.py        # FastAPI server with CORS & health check
-│       ├── models.py      # Pydantic schemas for requests and trace steps
-│       ├── runner.py      # Subprocess execution worker with deterministic snapshots
-│       └── tracer.py      # Isolated process runner with timeouts and IPC
-├── src/
-│   ├── components/
-│   │   ├── Controls.tsx       # Timeline playback and speed controls
-│   │   ├── Editor.tsx         # Monaco editor with active line markers
-│   │   ├── PointerInput.tsx   # User-defined pointer variable chips
-│   │   └── Visualization.tsx  # Array cells, pointers, and variables inspector
-│   ├── pages/
-│   │   ├── _app.tsx           # Next.js app wrapper
-│   │   └── index.tsx          # Main side-by-side workspace
-│   └── styles/
-│       └── globals.css        # Tailwind CSS and theme definitions
-├── package.json
-├── tsconfig.json
-└── README.md
-```
+The application includes two built-in examples:
+
+1. **Two Sum**:
+   Demonstrates array traversal, variable state tracking, and hash map lookup (`seen[num] = i`) with a single pointer `i`.
+2. **Binary Search**:
+   Demonstrates classic divide-and-conquer on a sorted array with three pointers: `low`, `high`, and `mid`.
+
+---
+
+## Custom Code
+
+The **Your Code** workspace is the primary experience of the application. Users can write, paste, and run any custom Python algorithm, adjust pointer variables dynamically, and visualize custom loops, sliding windows, two-pointer algorithms, and array mutations.
+
+---
+
+## Tech Stack
+
+- **Frontend**:
+  - [Next.js](https://nextjs.org/) 16 (Pages router, React 19)
+  - [Monaco Editor](https://microsoft.github.io/monaco-editor/) (`@monaco-editor/react`)
+  - [Tailwind CSS](https://tailwindcss.com/) v4
+  - [Axios](https://axios-http.com/)
+- **Backend**:
+  - [FastAPI](https://fastapi.tiangolo.com/)
+  - [Uvicorn](https://www.uvicorn.org/)
+  - [Python 3](https://www.python.org/) (`sys.settrace`, `subprocess` isolation, JSON IPC)
 
 ---
 
@@ -93,10 +113,12 @@ dsa-visualizer/
 
 ### Prerequisites
 
-- **Python**: Version 3.10+
 - **Node.js**: Version 18+ and `npm`
+- **Python**: Version 3.10+
 
-### 1. Backend Setup
+### 1. Start the Backend Tracer
+
+From the project root:
 
 ```bash
 cd backend
@@ -104,11 +126,11 @@ pip install -r requirements.txt
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-The API will be available at `http://127.0.0.1:8000`. You can verify health status at `http://127.0.0.1:8000/health`.
+The tracer service will start on `http://127.0.0.1:8000`. You can test the health endpoint at `http://127.0.0.1:8000/health`.
 
-### 2. Frontend Setup
+### 2. Start the Frontend Development Server
 
-In a separate terminal:
+In a new terminal from the project root:
 
 ```bash
 npm install
@@ -119,26 +141,39 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## Production Deployment
+## Production Build
 
-### Environment Configuration
-
-By default, the frontend connects to `http://127.0.0.1:8000`. For production, configure the backend API URL:
-
-```env
-NEXT_PUBLIC_API_URL=https://your-backend-domain.com
-```
-
-### Production Build
+To build the frontend for production:
 
 ```bash
 npm run build
+```
+
+To run the production build locally:
+
+```bash
 npm run start
 ```
 
-### Backend Production Service
+---
 
-Run Uvicorn with production process management:
+## Deployment
+
+### Frontend Deployment (Vercel)
+
+The Next.js frontend can be deployed directly to [Vercel](https://vercel.com/):
+
+1. Push your repository to GitHub.
+2. Import the repository in Vercel.
+3. Configure the environment variable:
+   ```env
+   NEXT_PUBLIC_API_URL=https://your-python-backend.com
+   ```
+4. Deploy.
+
+### Backend Deployment
+
+The FastAPI backend can be deployed to any Python host (e.g., Render, Railway, Fly.io, or a VPS):
 
 ```bash
 python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --workers 4
@@ -146,6 +181,47 @@ python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --workers 4
 
 ---
 
-## License
+## Project Structure
 
-MIT License. Free for educational and personal use.
+```text
+dsa-visualizer/
+├── docs/
+│   └── images/
+│       └── dsa-visualizer-demo.png   # Application screenshot
+├── backend/
+│   ├── requirements.txt              # Python dependencies (fastapi, uvicorn, pydantic)
+│   └── app/
+│       ├── main.py                   # FastAPI server & CORS setup
+│       ├── models.py                 # Pydantic schemas for trace requests and steps
+│       ├── runner.py                 # Isolated tracer script with cycle detection
+│       └── tracer.py                 # Subprocess runner with timeout safety
+├── src/
+│   ├── components/
+│   │   ├── Controls.tsx              # Play/Pause, step navigation, scrubber, speed presets
+│   │   ├── Editor.tsx                # Monaco editor with active line markers
+│   │   ├── PointerInput.tsx          # User-defined pointer variable input and chips
+│   │   └── Visualization.tsx         # Array cards, pointers, and variables inspector
+│   ├── pages/
+│   │   ├── _app.tsx                  # App root
+│   │   └── index.tsx                 # Main layout (Your Code vs Examples, side-by-side workspace)
+│   └── styles/
+│       └── globals.css               # Theme styling and custom scrollbars
+├── .env.example                      # Environment variable template
+├── .gitignore                        # Git ignore rules for Next.js, Node, and Python
+├── package.json                      # NPM dependencies and scripts
+├── tsconfig.json                     # TypeScript configuration
+└── README.md                         # Project documentation
+```
+
+---
+
+## Future Improvements
+
+The following items are planned for future iterations:
+
+- AST-based code understanding and semantic analysis
+- Automatic variable-role detection and smart suggestions
+- More data structure visualizations (Trees, Linked Lists, Graphs)
+- Additional curated algorithm examples
+- AI-assisted execution explanations
+- Advanced call stack and recursion tree visualization
