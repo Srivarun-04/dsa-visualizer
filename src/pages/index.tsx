@@ -169,12 +169,21 @@ export default function Home() {
         fetchTrace();
         return;
       }
-      if (
-        document.activeElement?.tagName === 'INPUT' ||
-        document.activeElement?.tagName === 'TEXTAREA' ||
-        document.activeElement?.classList.contains('inputarea')
-      ) {
-        return;
+      const target = e.target as HTMLElement | null;
+      const activeEl = document.activeElement as HTMLElement | null;
+      const isTyping =
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.isContentEditable ||
+        Boolean(target?.closest('.monaco-editor')) ||
+        activeEl?.tagName === 'INPUT' ||
+        activeEl?.tagName === 'TEXTAREA' ||
+        activeEl?.isContentEditable ||
+        Boolean(activeEl?.closest('.monaco-editor')) ||
+        Boolean(activeEl?.classList?.contains('inputarea'));
+
+      if (isTyping) {
+        return; // Do not intercept space or arrows when typing in Monaco or input fields
       }
       if (e.code === 'ArrowLeft') {
         e.preventDefault();
